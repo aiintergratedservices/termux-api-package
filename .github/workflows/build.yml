@@ -1,0 +1,39 @@
+name: Build
+
+# Smoke-build the native termux-api helpers with a host toolchain so that
+# regressions in the C sources or CMakeLists are caught in CI. This does NOT
+# produce Termux-installable artifacts (those require the Termux NDK toolchain
+# and are built by the termux-packages infrastructure) -- it only validates
+# that the C library, static archive and broadcast executable still compile.
+
+on:
+  push:
+    branches: [ "master", "main", "claude/**" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: CMake configure & compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+      - name: Configure (CMake)
+        run: cmake -S . -B build -DCMAKE_INSTALL_PREFIX="$PWD/prefix"
+
+      - name: Compile
+        run: cmake --build build
+
+      - name: Verify artifacts were produced
+        run: |
+          set -e
+          test -f build/libtermux-api.so
+          test -f build/libtermux-api.a
+          test -x build/termux-api-broadcast
+          echo "Native helpers compiled successfully."
